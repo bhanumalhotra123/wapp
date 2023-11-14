@@ -27,15 +27,47 @@ type Sender interface {
 	Send(*WeatherData) error
 }
 
-type WPoller struct {
-	closech chan struct{}
-	sender  Sender
+type SMSSender struct {
+	number string
 }
 
-func NewPoller(sender Sender) *WPoller {
+func NewSMSSender(number string) *SMSSender {
+	return &SMSSender{
+		number: number,
+	}
+}
+
+func (s *SMSSender) Send(data *WeatherData) error {
+	fmt.Println("sending weather to number: ", s.number)
+	return nil
+}
+
+
+type EmailSender struct {
+	number string
+}
+
+func NewEmailSender(number string) *EmailSender {
+	return &EmailSender{
+		number: number,
+	}
+}
+
+func (e *EmailSender) Send(data *WeatherData) error {
+	fmt.Println("sending weather to email: ", e.email)
+	return nil
+}
+
+
+type WPoller struct {
+	closech chan struct{}
+	senders  Sender
+}
+
+func NewPoller(senders ...Sender) *WPoller {
 	return &WPoller{
 		closech: make(chan struct{}),
-		sender:  sender,
+		senders:  senders,
 	}
 
 }
@@ -76,15 +108,19 @@ outer:
 func (wp *WPoller) handleData(data *WeatherData) error {
 	// handle the data (store it in db)
 	//send
+	for _, s := range wp.senders {
+		if err := s.Send(data); err != nil {
+			return err := s.Send(data); err != nil {
+				fmt.Println(err)
+			}
+		}
+	}
 	return wp.sender.Send(data)
 
 }
 
 func getWeatherResult(lat, long float64) (*WeatherData, error) {
 	uri := fmt.Sprintf("%s?latitude=%.2f&longitude=%.2f&hourly=temperature_2m", endpoint, lat, long)
-	fmt.Println("-----------")
-	fmt.Println(uri)
-	fmt.Println("-----------")
 
 	resp, err := http.Get(uri)
 	if err != nil {
@@ -101,8 +137,8 @@ func getWeatherResult(lat, long float64) (*WeatherData, error) {
 }
 
 func main() {
-
-	WPoller := NewPoller()
+	smsSender := NewSMSSender("7404817684")
+	WPoller := NewPoller(smsSender)
 	WPoller.start()
 
 }
